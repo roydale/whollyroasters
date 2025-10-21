@@ -1,0 +1,9 @@
+{% extends "layout.html" %} {% block container %}
+<p>{{ count }} bag of beans left!</p>
+<p>Types of coffee beans:</p>
+<ul>
+  {% for bean in beans %}
+  <li>{{ bean }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}
