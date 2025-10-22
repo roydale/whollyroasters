@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request
 from forms import RegistrationForm
 from flask_wtf.csrf import CSRFProtect
+from flask_sqlalchemy import SQLAlchemy
 
 '''
 # To generate a secret key, run the following code once in a Python shell:
@@ -14,6 +15,48 @@ app.config['SECRET_KEY'] = '6d3552184a04f416e7c240dc7f0fe13a'  # use a random va
 
 # ✅ Enable CSRF protection
 csrf = CSRFProtect(app)
+
+# ✅ Configure the database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///whollyroasters.db'
+db = SQLAlchemy(app)
+with app.app_context():
+    # ✅ Define the User model
+    class User(db.Model):
+        # Custom name for the table
+        #__tablename__ = 'Users'
+        
+        id = db.Column(db.Integer, primary_key=True)
+        username = db.Column(db.String(50), index=True, unique=True)
+        password = db.Column(db.String(128))
+
+    def __repr__(self):
+        return f"<User id={self.id} username={self.username}>"
+    
+    # ✅ Define the ShippingInfo model
+    class ShippingInfo(db.Model):
+        ship_id = db.Column(db.Integer, primary_key=True)
+        full_name = db.Column(db.String(50))
+        address = db.Column(db.String(50))
+        user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+
+    def __repr__(self):
+        return f"<{self.full_name}'s address is {self.address}.>"
+    
+    db.create_all()
+    
+    User.query.delete()
+    user1 = User(username = "coffeeaddict", password = "1234")
+    db.session.add(user1)
+    db.session.commit()    
+    
+    ShippingInfo.query.delete()
+    ship1 = ShippingInfo(full_name="Claudia Reyes", address="Amsterdam 210, CDMX, Mexico", user_id=2)
+    ship2 = ShippingInfo(full_name="Roy Latte", address="Beau St, Bath BA1 1QY, UK", user_id=1)
+    db.session.add(ship1)
+    db.session.add(ship2)
+    db.session.commit()
+    
+# end db app context
 
 @app.route("/", methods=["GET"])
 def welcome():
@@ -92,9 +135,25 @@ def register():
 
     if request.method == "POST":
         if form.validate_on_submit():
+            user_match = User.query.filter_by(username=form.data['uname']).first()
+            if user_match:
+                message = "User already exists!"
+                return render_template("register.html",
+                                       message=message,
+                                       form=form)
+                        
+            '''
             username = form.data["uname"]
-            password = form.data["pword"]
+            password = form.data["pword"]            
+            '''
             confirm = form.data["confirm"]
+            
+            username=form.uname.data
+            newUser = User(
+                username=username, 
+                password=form.pword.data)
+            db.session.add(newUser)
+            db.session.commit()
             message = f"Successfully registered {username}!"
         else:
             message = "Registration failed."
@@ -102,6 +161,12 @@ def register():
     return render_template("register.html",
                            message=message,
                            form=form)
+    
+@app.route("/admin", methods=["GET"])
+def admin():
+    users = User.query.all()
+    shippers = ShippingInfo.query.all()
+    return render_template("admin.html", users=users, shippers=shippers)
 
 if __name__ == "__main__":
     app.run(debug=True)
